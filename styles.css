@@ -373,7 +373,7 @@ tbody tr:last-child > * { border-bottom: 0; }
   margin-left: -6px; border: 6px solid transparent; border-top-color: var(--ink);
 }
 
-@media (max-width: 560px) {
+@media (max-width: 600px) {
   .pasiak { flex-direction: column; flex-wrap: nowrap; }
   .stripe, .stripe[aria-pressed="false"] {
     flex: none; min-height: 2.75rem; flex-direction: row; align-items: baseline; justify-content: flex-start;
@@ -382,9 +382,96 @@ tbody tr:last-child > * { border-bottom: 0; }
   .stripe .s-en { margin-left: auto; }
   .case-band .en { margin-left: 0; }
   .view-btn { font-size: 1.3125rem; }
+
+  /* Tables: drop the fixed minimum width so every column fits on the screen.
+     Long forms and signal-word lists wrap inside their cell instead of scrolling sideways. */
+  .gtable, .gtable.tense, .gtable.narrow, .grid-wrap.mini .gtable, .grid-wrap.mini .gtable.tense { min-width: 0; width: 100%; max-width: none; table-layout: auto; }
+  .gtable caption, .gtable .g-title { font-size: 1.125rem; padding: .75rem .5rem .5rem; white-space: normal; }
+  .gtable th, .gtable td, .grid-wrap.mini .gtable th, .grid-wrap.mini .gtable td { padding: .5rem .3rem; }
+  .gtable .col-label { width: auto; }
+  .gtable .g-label, .gtable.tense .g-label { font-size: .875rem; letter-spacing: 0; overflow-wrap: anywhere; }
+  .gtable .g-head, .gtable.tense .g-head, .grid-wrap.mini .g-head { font-size: 1rem; white-space: normal; overflow-wrap: anywhere; }
+  .gtable .g-sub { font-size: 1rem; }
+  .gtable.tense .g-form { font-size: 1rem; overflow-wrap: anywhere; }
+  .grid-wrap.mini .g-form { font-size: .9375rem; }
+  .grid-wrap.mini { padding: 2px; }
+  .gtable.tense .g-cell { line-height: 1.35; }
+  .g-cell.hl { outline-width: 3px; outline-offset: -3px; }
+  .grid-wrap.mini .gtable caption { font-size: 1rem; }
+  .g-notes { font-size: .875rem; }
+
+  /* Quiz: use the full width and keep the answer panel's text inside the phone */
+  .q-case { display: flex; margin-top: 1.25rem; padding: .5rem .75rem .5rem 1rem; }
+  .sentence { font-size: 1.625rem; }
+  .reveal { padding: 1rem .75rem; border-left-width: 6px; }
+  .reveal .ans { font-size: 1.5rem; }
+  .answer-row input { flex-basis: 100%; max-width: none; }
+  .mode-switch { margin-left: 0; }
+
+  /* Progress table: let names and counts wrap, shrink the bar */
+  .progress-table th, .progress-table td { padding: .5rem .2rem; }
+  .progress-table th:nth-child(2), .progress-table td:nth-child(2) { display: none; }
+  .progress-table thead th { font-size: .6875rem; white-space: normal; }
+  .progress-table tbody th { white-space: normal; font-size: .875rem; width: 38%; border-left-width: 4px; overflow-wrap: anywhere; }
+  .progress-table tbody th small { font-size: .75rem; }
+  .progress-table td { font-size: .875rem; text-align: center; }
+  .bar { width: 4rem; }
+  .overview .case-name { white-space: normal; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
 [hidden] { display: none !important; }
 #view-quiz { min-height: 100vh; }
+
+/* Phones: tables stack into labelled rows instead of scrolling sideways */
+@media (max-width: 640px) {
+  body > header, body > section, body > nav, main { padding-inline: 1rem; }
+  .masthead h1 { font-size: 3.25rem; }
+  .table-wrap { overflow: visible; border: 0; background: none; }
+  .gtable, .ov-table, .progress-table,
+  .gtable thead, .ov-table thead, .progress-table thead,
+  .gtable tbody, .ov-table tbody, .progress-table tbody,
+  .gtable tr, .ov-table tr, .progress-table tr,
+  .gtable td, .ov-table td, .progress-table td,
+  .gtable th, .ov-table th, .progress-table th { display: block; }
+  .gtable thead, .ov-table thead, .progress-table thead { position: absolute; left: -9999px; }
+  .gtable tbody tr:has(> .g-head), .gtable tbody tr:has(> .g-sub) { display: none; }
+  .gtable, .gtable.tense, .gtable.narrow, .gtable.words, .grid-wrap.mini .gtable, .grid-wrap.mini .gtable.tense, .ov-table, .progress-table { min-width: 0; max-width: none; width: 100%; border-spacing: 0; table-layout: auto; }
+  .gtable caption { display: block; width: 100%; text-align: left; font-size: 1.125rem; padding: .5rem 0; }
+  .gtable colgroup { display: none; }
+  .gtable tr, .ov-table tr, .progress-table tr { margin-bottom: .75rem; background: var(--paper); border: 1px solid var(--rule); }
+  .gtable .g-title { text-align: left; padding: 1.25rem 0 .25rem; font-size: 1.125rem; }
+  .gtable tr:has(> .g-title) { border: 0; background: none; margin: 0; }
+  .gtable th.g-label, .ov-table th.case-name, .progress-table tbody th { text-align: left; padding: .5rem .75rem; font-size: 1rem; width: auto; }
+  .gtable td, .ov-table td, .progress-table td { text-align: left; padding: .5rem .75rem .5rem 8.5rem; position: relative; min-height: 2.25rem; font-size: 1rem; }
+  .gtable td::before, .ov-table td::before, .progress-table td::before {
+    content: attr(data-col); position: absolute; left: .75rem; top: .55rem; width: 7.25rem;
+    font: 700 .75rem/1.2 var(--sans); color: rgba(0, 0, 0, .65); text-transform: none;
+  }
+  .g-cell span { display: inline; }
+  .g-cell .g-ex, .g-cell .g-eq { display: block; }
+  .g-end { font-size: 1.25rem; }
+  .g-form, .gtable.tense .g-form, .grid-wrap.mini .g-form { font-size: 1.125rem; }
+  .gtable.words .g-label { font-size: 1.0625rem; }
+  .gtable .g-label small { display: inline; margin-left: .375rem; }
+  .g-cell.hl { outline-offset: -3px; }
+  .grid-wrap.mini { padding: 0; }
+  .grid-wrap.mini .gtable caption { padding: .375rem 0; }
+  .grid-wrap.mini .gtable th, .grid-wrap.mini .gtable td { padding: .4rem .625rem .4rem 8rem; }
+  .grid-wrap.mini .gtable th.g-label { padding-left: .625rem; }
+  /* these beat the desktop rules that give the pronoun and verb tables their own cell padding */
+  .gtable.words .g-cell, .gtable.narrow .g-cell, .gtable.tense .g-cell, .gtable.tense td, .grid-wrap.mini .gtable.tense td, .gtable.words td { padding: .5rem .75rem .5rem 8.5rem; }
+  .grid-wrap.mini .gtable.tense td, .grid-wrap.mini .gtable.words td { padding: .4rem .625rem .4rem 8rem; }
+  .gtable.words thead .g-label, .gtable.words .g-label, .gtable.tense .g-label { padding: .5rem .75rem; font-size: 1rem; }
+  .gtable caption, .gtable.tense caption, .grid-wrap.mini .gtable caption, .gtable.words caption { font-size: 1rem; letter-spacing: 0; text-transform: none; font-weight: 700; overflow-wrap: anywhere; padding: .5rem .25rem; }
+  .grid-wrap, .grid-wrap.mini { overflow: hidden; padding: .125rem; }
+  .progress-table th:nth-child(2), .progress-table td:nth-child(2) { display: block; }
+  .progress-table .bar { width: 100%; }
+  .progress-table td:has(.bar)::before { content: ''; }
+  .progress-table td:has(.bar) { padding-left: .75rem; }
+  .progress-table tbody th { width: auto; }
+  .q-top { flex-direction: column; gap: .25rem; }
+  .views { gap: 1.25rem; }
+  .letters button { width: 2.125rem; height: 2.125rem; }
+}

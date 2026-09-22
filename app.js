@@ -235,13 +235,14 @@
     ? `<h3>Watch out</h3><ul class="watch">${items.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : '';
 
   /* ---------- reference view: cases ---------- */
-  function gridRow(row, hl) {
+  function gridRow(row, hl, names) {
     let col = 0;
     return `<tr><th scope="row" class="g-label">${esc(row.label)}</th>${row.cells.map(c => {
       const from = col, to = col + (c.span || 1); col = to;
       const on = hl && hl.rows.has(row.label) && hl.col >= from && hl.col < to;
+      const label = to - from === 4 ? 'all genders' : names.slice(from, to).join(', ');
       return `
-      <td class="g-cell t-${c.tint} ${on ? 'hl' : ''}" ${c.span ? `colspan="${c.span}"` : ''}>
+      <td class="g-cell t-${c.tint} ${on ? 'hl' : ''}" ${c.span ? `colspan="${c.span}"` : ''} data-col="${esc(label)}">
         <span class="g-end">${withNotes(c.end)}</span>
         <span class="g-ex" lang="${APP.lang}">${esc(c.ex)}</span>
         ${c.eq ? `<span class="g-eq">${esc(c.eq)}</span>` : ''}
@@ -258,14 +259,14 @@
             <th rowspan="2" class="g-head t-n">neuter</th><th rowspan="2" class="g-head t-f">feminine</th></tr>
           <tr><th class="g-sub t-m1">animate</th><th class="g-sub t-m2">inanimate</th></tr>
         </thead>
-        <tbody>${c.grid.sg.map(r => gridRow(r, sg)).join('')}</tbody>`;
+        <tbody>${c.grid.sg.map(r => gridRow(r, sg, COL_NAMES.sg)).join('')}</tbody>`;
     const plural = `
         <tbody>
           <tr><th colspan="5" class="g-title">${esc(c.en)} plural</th></tr>
           <tr><th rowspan="2" class="g-label">Gender</th><th colspan="2" class="g-head t-m">masculine</th>
             <th rowspan="2" class="g-head t-n">neuter</th><th rowspan="2" class="g-head t-f">feminine</th></tr>
           <tr><th class="g-sub t-m1">personal (men)</th><th class="g-sub t-m2">other</th></tr>
-          ${c.grid.pl.map(r => gridRow(r, pl)).join('')}
+          ${c.grid.pl.map(r => gridRow(r, pl, COL_NAMES.pl)).join('')}
         </tbody>`;
     if (only) return `<div class="table-wrap grid-wrap mini"><table class="gtable">${only === 'sg' ? singular : `<caption>${esc(c.en)} plural</caption><colgroup><col class="col-label"><col><col><col><col></colgroup>` + plural}</table></div>`;
     return `<div class="table-wrap grid-wrap">
@@ -307,17 +308,16 @@
 
   // items: [{ word, en, forms: six strings }] in the order masc animate, masc inanimate, neuter, feminine, plural with men, other plural
   function sixSlotGrid(caption, items, notes) {
-    const pair = (x, y, tintBoth, tintX, tintY) => x === y
-      ? `<td class="g-cell t-${tintBoth}" colspan="2"><span class="g-form" lang="${APP.lang}">${esc(x)}</span></td>`
-      : `<td class="g-cell t-${tintX}"><span class="g-form" lang="${APP.lang}">${esc(x)}</span></td><td class="g-cell t-${tintY}"><span class="g-form" lang="${APP.lang}">${esc(y)}</span></td>`;
+    const cell = (x, tint, label, span) => `<td class="g-cell t-${tint}" ${span ? `colspan="${span}"` : ''} data-col="${esc(label)}"><span class="g-form" lang="${APP.lang}">${esc(x)}</span></td>`;
+    const pair = (x, y, tintBoth, tintX, tintY, lx, ly, lboth) => x === y ? cell(x, tintBoth, lboth, 2) : cell(x, tintX, lx) + cell(y, tintY, ly);
     const rows = items.map(({ word, en, forms: f }) => {
       const head = `<th scope="row" class="g-label"><span lang="${APP.lang}">${esc(word)}</span><small>${esc(en)}</small></th>`;
-      if (f.every(x => x === f[0])) return `<tr>${head}<td class="g-cell t-all" colspan="6"><span class="g-form" lang="${APP.lang}">${esc(f[0])}</span><span class="g-eq">never changes</span></td></tr>`;
+      if (f.every(x => x === f[0])) return `<tr>${head}<td class="g-cell t-all" colspan="6" data-col="every form"><span class="g-form" lang="${APP.lang}">${esc(f[0])}</span><span class="g-eq">never changes</span></td></tr>`;
       return `<tr>${head}
-        ${pair(f[0], f[1], 'm', 'm1', 'm2')}
-        <td class="g-cell t-n"><span class="g-form" lang="${APP.lang}">${esc(f[2])}</span></td>
-        <td class="g-cell t-f"><span class="g-form" lang="${APP.lang}">${esc(f[3])}</span></td>
-        ${pair(f[4], f[5], 'all', 'm1', 'all')}</tr>`;
+        ${pair(f[0], f[1], 'm', 'm1', 'm2', 'masculine animate', 'masculine inanimate', 'masculine')}
+        ${cell(f[2], 'n', 'neuter')}
+        ${cell(f[3], 'f', 'feminine')}
+        ${pair(f[4], f[5], 'all', 'm1', 'all', 'plural with men', 'other plural', 'plural')}</tr>`;
     }).join('');
     return `<div class="table-wrap grid-wrap">
       <table class="gtable words">
@@ -351,8 +351,8 @@
     const rows = PRONOUNS.personal.concat(smallWordsPersonal()).map(p => {
       const [plain, after] = p[c.id];
       return `<tr><th scope="row" class="g-label"><span lang="${APP.lang}">${esc(p.word)}</span><small>${esc(p.en)}</small></th>
-        <td class="g-cell t-all"><span class="g-form" lang="${APP.lang}">${esc(plain)}</span></td>
-        ${prep ? `<td class="g-cell t-all ${after ? 'changed' : ''}"><span class="g-form" lang="${APP.lang}">${esc(after || plain)}</span></td>` : ''}</tr>`;
+        <td class="g-cell t-all" data-col="${esc(c.en.toLowerCase())}"><span class="g-form" lang="${APP.lang}">${esc(plain)}</span></td>
+        ${prep ? `<td class="g-cell t-all ${after ? 'changed' : ''}" data-col="after a preposition"><span class="g-form" lang="${APP.lang}">${esc(after || plain)}</span></td>` : ''}</tr>`;
     }).join('');
     return `<div class="table-wrap grid-wrap">
       <table class="gtable words narrow">
@@ -379,13 +379,33 @@
     const rows = selectedGroups().map(c => `
       <tr style="${colour(c.colour)}">
         <th scope="row" class="case-name"><a href="#ref-${c.id}" lang="${APP.lang}">${esc(c.pl)}</a><span>${esc(c.en)}, <i lang="${APP.lang}">${esc(c.q)}</i></span></th>
-        ${block.rows[c.id].map((cell, i) => `<td class="ov-cell ${tints[i]}">${esc(cell)}</td>`).join('')}
+        ${block.rows[c.id].map((cell, i) => `<td class="ov-cell ${tints[i]}" data-col="${esc(block.cols[i].toLowerCase())}">${esc(cell)}</td>`).join('')}
       </tr>`).join('');
     return `<h3>${esc(block.title)}</h3>
       <div class="table-wrap"><table class="ov-table">
         <thead><tr><th scope="col">Case</th>${block.cols.map((h, i) => `<th scope="col" class="g-head ${tints[i]}">${h.toLowerCase()}</th>`).join('')}</tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
+  }
+
+  function soundsSection() {
+    if (typeof SOFTENING === 'undefined') return '';
+    return `<section class="case sounds" id="ref-sounds" style="--c: var(--ink)">
+      <div class="case-band"><h2>Sound changes</h2><span class="q">okno → w oknie, stół → na stole</span><span class="en">What happens to the stem when an ending is added</span></div>
+      <p class="case-summary">${esc(SOFTENING_INTRO)}</p>
+      <h3>Softening before -e and -i</h3>
+      <div class="table-wrap"><table class="sounds-table">
+        <thead><tr><th scope="col">Hard, then soft</th><th scope="col">Examples</th></tr></thead>
+        <tbody>${SOFTENING.map(r => `<tr><td class="snd" lang="pl">${esc(r.hard)} → ${esc(r.soft)}</td><td lang="pl">${esc(r.ex)}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <h3>Where you meet it</h3>
+      <ul class="watch">${SOFTENING_WHERE.map(w => `<li>${esc(w)}</li>`).join('')}</ul>
+      <h3>Vowels that shift</h3>
+      <div class="table-wrap"><table class="sounds-table">
+        <thead><tr><th scope="col">Shift</th><th scope="col">Examples and when</th></tr></thead>
+        <tbody>${VOWEL_CHANGES.map(r => `<tr><td class="snd" lang="pl">${esc(r.from)} → ${esc(r.to)}</td><td lang="pl">${esc(r.ex)}<span class="when">${esc(r.when)}</span></td></tr>`).join('')}</tbody>
+      </table></div>
+    </section>`;
   }
 
   const caseSection = c => `<article class="case" id="ref-${c.id}" style="${colour(c.colour)}">
@@ -405,7 +425,7 @@
         <caption>${esc(t.title)}</caption>
         <thead><tr><th class="g-label"></th>${t.cols.map(c => `<th scope="col" class="g-head t-${c.tint}">${esc(c.label.toLowerCase())}</th>`).join('')}</tr></thead>
         <tbody>${t.rows.map((r, ri) => `<tr><th scope="row" class="g-label" lang="${APP.lang}">${esc(r.who)}</th>
-          ${r.cells.map((cell, i) => `<td class="g-cell t-${t.cols[i].tint} ${hl && hl.rows.has(ri) && hl.cols.has(i) ? 'hl' : ''}"><span class="g-form" lang="${APP.lang}">${markEndings(cell)}</span></td>`).join('')}</tr>`).join('')}</tbody>
+          ${r.cells.map((cell, i) => `<td class="g-cell t-${t.cols[i].tint} ${hl && hl.rows.has(ri) && hl.cols.has(i) ? 'hl' : ''}" data-col="${esc(t.cols[i].label)}"><span class="g-form" lang="${APP.lang}">${markEndings(cell)}</span></td>`).join('')}</tr>`).join('')}</tbody>
       </table>
     </div>${!mini && t.note ? `<ul class="g-notes"><li>${esc(t.note)}</li></ul>` : ''}`;
 
@@ -473,6 +493,87 @@
     return null;
   }
 
+  /* ---------- what changed between the dictionary form and the answer (Polish case nouns) ---------- */
+  const VOWELS = 'aąeęioóuy';
+  const isVowel = ch => VOWELS.includes(ch);
+  const NOM_ENDINGS = ['um', 'ie', 'a', 'o', 'e', 'ę', 'y', 'i'];    // nouns and adjectives
+
+  // a word may keep or drop its final vowel: pani keeps the i, tani drops it, okno drops the o
+  function stemsOf(word) {
+    const out = [word];
+    for (const e of NOM_ENDINGS) if (word.length > e.length + 1 && word.endsWith(e)) { out.push(word.slice(0, -e.length)); break; }
+    return out;
+  }
+
+  // every plausible stem shape: vowel change or mobile e, then optional softening of the final consonant(s)
+  function candidates(stem) {
+    const out = [{ s: stem, steps: [] }];
+    const lastIdx = (ch) => stem.lastIndexOf(ch);
+    for (const [from, to, note] of [['ó', 'o', 'ó becomes o'], ['ą', 'ę', 'ą becomes ę'], ['a', 'e', 'a becomes e'], ['o', 'e', 'o becomes e'], ['ę', 'ą', 'ę becomes ą']]) {
+      const i = lastIdx(from);
+      if (i > 0 && !stem.slice(i + 1).split('').some(isVowel)) out.push({ s: stem.slice(0, i) + to + stem.slice(i + 1), steps: [note] });
+    }
+    // mobile e: pies → ps, cukier → cukr, Marek → Mark, dworzec → dworc
+    const m = stem.match(/^(.*[^aąeęioóuy])(i?e)([^aąeęioóuy]+)$/);
+    if (m && m[1].length) out.push({ s: m[1] + m[3], steps: ['the e drops out'] });
+    // inserted e: książk → książek, okn → okien
+    const last = stem.slice(-1), before = stem.slice(0, -1);
+    if (before && !isVowel(last) && !isVowel(before.slice(-1))) {
+      out.push({ s: before + 'e' + last, steps: ['an e slips in between the last two consonants'] });
+      out.push({ s: before + 'ie' + last, steps: ['an e slips in between the last two consonants'] });
+      if (/ó$/.test(before) === false && /o[^aąeęioóuy]$/.test(stem)) {}
+    }
+    const soft = [];
+    out.forEach(c => SOFTENING.forEach(r => {
+      if (c.s.endsWith(r.hard)) soft.push({ s: c.s.slice(0, -r.hard.length) + r.soft, pre: c.s, steps: c.steps.slice(), soft: r });
+    }));
+    return out.concat(soft);
+  }
+
+  function analyseWord(base, answer) {
+    const b = base.toLowerCase(), a = answer.toLowerCase();
+    if (b === a) return { base, answer, same: true };
+    let best = null;
+    const cost = c => c.steps.length + (c.soft ? 1 : 0);
+    stemsOf(b).forEach(stem => candidates(stem).forEach(c => {
+      if (!a.startsWith(c.s)) return;
+      const ending = a.slice(c.s.length);
+      if (!KNOWN_ENDINGS.includes(ending)) return;
+      if (!best || cost(c) < cost(best) || (cost(c) === cost(best) && c.s.length > best.s.length)) best = { ...c, ending };
+    }));
+    if (!best) return { base, answer, unknown: true };
+    return { base, answer, stem: best.s, pre: best.pre, ending: best.ending, steps: best.steps, soft: best.soft };
+  }
+
+  function changeNote(item) {
+    if (state.topic.id !== 'cases' || item.kind === 'pronoun' || typeof SOFTENING === 'undefined') return '';
+    const bases = item.base.trim().split(/\s+/), answers = item.a[0].trim().split(/\s+/);
+    if (bases.length !== answers.length) return '';
+    const lines = bases.map((bw, i) => {
+      const r = analyseWord(bw, answers[i]);
+      const w = `<b lang="${APP.lang}">${esc(r.base)} → ${esc(r.answer)}</b>`;
+      if (r.same) return `${w}: no change.`;
+      if (r.unknown) return `${w}: irregular. Learn this form as a word of its own.`;
+      const steps = r.steps.slice();
+      let built;
+      if (r.soft) {
+        const { hard, soft, spelling } = r.soft;
+        const merged = !r.ending && soft.endsWith('i');
+        const written = merged ? soft : soft + r.ending;
+        if (spelling) steps.push(merged ? `${hard} is written ${soft} before the ending -i, which merges into it` : `${hard} is written ${soft} before the ending -${esc(r.ending)}, so ${hard} + ${esc(r.ending)} gives ${written}`);
+        else steps.push(merged ? `${hard} softens to ${soft}, and the i of ${soft} is the plural ending -i itself` : `${hard} softens to ${soft} before the ending -${esc(r.ending)}, so ${hard} + ${esc(r.ending)} is written ${written}`);
+        built = `${esc(r.pre)} + -${esc(merged ? 'i' : r.ending)} → ${esc(r.answer.toLowerCase())}`;
+      } else {
+        steps.push(r.ending ? `add the ending -${esc(r.ending)}` : 'no ending is added');
+        built = r.ending ? `${esc(r.stem)} + -${esc(r.ending)} → ${esc(r.answer.toLowerCase())}` : `${esc(r.base.toLowerCase())} → ${esc(r.answer.toLowerCase())}`;
+      }
+      const text = steps.map((s, i) => i === 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s).join(', then ');
+      return `${w}: ${text}. <span lang="${APP.lang}">${built}</span>`;
+    });
+    return `<div class="changes"><p class="changes-title">What changed</p><ul>${lines.map(l => `<li>${l}</li>`).join('')}</ul>
+      <button type="button" class="link-btn" data-action="see-sounds">See all sound changes</button></div>`;
+  }
+
   function revealTables(item, g) {
     if (!g.tables) return '';
     const score = h => (h.own ? 2 : 0) + (h.weak ? 0 : 1);
@@ -503,6 +604,7 @@
           ${overviewTable(OVERVIEW.nouns)}
           ${overviewTable(OVERVIEW.adjs)}
         </section>
+        ${soundsSection()}
         ${selectedGroups().map(caseSection).join('')}`
       : `${startRow()}
         <p class="case-summary topic-intro">${esc(t.intro)}</p>
@@ -623,6 +725,7 @@
         ${item.a.length > 1 ? `<p class="also">Also correct: <span lang="${APP.lang}">${item.a.slice(1).map(esc).join(', ')}</span></p>` : ''}
         <p class="en">${esc(item.en)}</p>
         <p class="why"><b>${esc(t.whyLabel(g))}</b> ${esc(item.why)}</p>
+        ${changeNote(item)}
         ${(() => { if (t.id !== 'cases') return revealTables(item, g); const hl = itemHighlight(item); return hl ? `<details class="mini-grid" open>
           <summary>Where it sits in the table<span class="hl-label">${esc(hl.label)}</span></summary>
           ${caseGrid(g, hl, hl.number)}
@@ -727,7 +830,7 @@
       return `<tr style="${colour(g.colour)}">
         <th scope="row"><span lang="${APP.lang}">${esc(g.pl)}</span><small>${esc(g.en)}</small></th>
         <td><div class="bar"><i class="done" style="width:${100 * s.mastered / s.total}%"></i><i class="seen" style="width:${100 * (s.seen - s.mastered) / s.total}%"></i></div></td>
-        <td>${s.seen} of ${s.total}</td><td>${s.mastered}</td><td>${s.weak}</td><td>${s.n ? pct + '%' : ''}</td></tr>`;
+        <td data-col="seen">${s.seen} of ${s.total}</td><td data-col="mastered">${s.mastered}</td><td data-col="to review">${s.weak}</td><td data-col="accuracy">${s.n ? pct + '%' : ''}</td></tr>`;
     }).join('');
     return `<section class="progress">
       <h3>Your progress</h3>
@@ -891,6 +994,7 @@
       renderQuiz();
     }
     else if (action === 'retry-missed') startQuiz(state.quiz.results.filter(r => !r.right).map(r => r.item), true);
+    else if (action === 'see-sounds') { setView('table'); document.getElementById('ref-sounds')?.scrollIntoView(); }
     else if (action === 'see-table') {
       setView('table');
       document.getElementById(`ref-${e.target.closest('[data-group]').dataset.group}`)?.scrollIntoView();

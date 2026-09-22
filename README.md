@@ -1,0 +1,43 @@
+# Końcówki
+
+Practise Polish endings: noun and adjective cases, past tense, future tense. No build step and no server needed.
+
+Open `index.html` in a browser:
+
+    xdg-open index.html
+
+## Hearing the words
+
+In the quiz, click any word in the sentence to hear it. The page uses the browser's own Polish voice. Google Chrome has one, called "Google polski", and it needs an internet connection. Brave has no speech voices, so use Chrome for audio:
+
+    ./open-in-chrome.sh
+
+## Files
+
+- `data.js` holds the case tables and the case quiz sentences.
+- `data-genders.js` gives the gender of every quiz noun, so the answer card can highlight the right cell of the endings grid. Add an entry when you add a noun.
+- `data-cases-extra.js` holds more case sentences. Together with `data.js` every case has 50. Check it with `node validate-cases.js`.
+- `data-cases-pronouns.js` holds case sentences that test pronouns, question words and possessives. Check it with `node validate-pronouns.js`.
+- `data-words.js` holds the paradigms of small words such as który, każdy and jakiś, shown under each case. Check it with `node validate-words.js`.
+- `data-past.js` and `data-future.js` hold the tense tables and tense quiz sentences. The app shows a topic only when its file is present.
+- `app.js` holds the topic switch, the filter, the tables and the quiz.
+- `styles.css` holds the design. Case colours and gender tints are set at the top of the file.
+- `validate.js` checks a tense data file: `node validate.js data-past.js PAST_TENSE`.
+
+## Adding a sentence
+
+Copy an entry in the `sentences` list of the file you want. `word{translation}` sets the hover text, `___` marks the gap, and `word_word{...}` joins a fixed phrase. `hint` is the small badge next to the word, such as `plural` or `ona`.
+
+A word can carry a gender tag after the translation: `siostra{sister|f}`, `studenci{student|m1.pl}`. The hover card then shows the gender in colour and a plural banner. Tags are `m1` (masculine animate), `m2` (masculine inanimate), `m` (masculine, for agreeing words), `n`, `f`, with `.pl` for plural. `node validate-tags.js <file> <CONST>` checks tags against the copies in `snapshot/`.
+
+Tense sentences also carry `p`, the person of the answer (`ja`, `ona`, `oni`…), which the answer card uses to highlight the right row of the conjugation table.
+
+`config.js` holds the language settings (speech voice, on-screen letters, storage prefix). The same `app.js` and `styles.css` also power the Spanish sibling project in `../spanish`.
+
+## Progress
+
+Every answer is saved in the browser. The quiz start screen shows, per case or verb group, how many sentences you have seen, mastered (right twice in a row) and need to review. By default a new quiz puts new and missed sentences first. An unfinished quiz can be continued after closing the page. Progress lives in one browser only, so Chrome and Brave keep separate records. "Reset progress" on the start screen clears it.
+
+## Quiz options
+
+The quiz start screen lets you pick 10, 20, 50 or all sentences, drawn at random from your selection. It also offers two answer modes. "Type it here" checks your spelling. "Write it in my notebook" shows only the question, then you reveal the answer and mark yourself right or wrong.

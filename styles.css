@@ -355,6 +355,55 @@ tbody tr:last-child > * { border-bottom: 0; }
 .summary h3 { font: 700 1.25rem var(--serif); margin-top: 2.25rem; }
 .summary .actions { display: flex; flex-wrap: wrap; gap: .625rem; }
 
+/* Score ring at the end of a quiz */
+.score-ring { display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem 2.25rem; margin: 1.5rem 0 0; }
+.ring { position: relative; width: 12rem; flex: none; }
+.ring svg { display: block; width: 100%; height: auto; }
+.ring circle { fill: none; stroke-width: 11; }
+.ring-track { stroke: var(--rule); }
+.ring-arc { stroke: var(--c); stroke-linecap: round; stroke-dasharray: 0 100; visibility: hidden; }
+.ring-num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring-num b { font: 700 3.25rem/1 var(--serif); color: var(--ink); font-variant-numeric: tabular-nums; }
+.ring-num span { font-size: .9375rem; color: var(--ink-soft); }
+.ring-title { font: 700 1.25rem var(--serif); }
+.ring-title span { margin-left: .375rem; font: 400 1.0625rem var(--sans); color: var(--ink-soft); }
+.ring-key { list-style: none; margin: .625rem 0 0; padding: 0; display: grid; gap: .375rem; }
+.ring-key li { display: flex; align-items: baseline; gap: .5rem; }
+.ring-key i { width: .875rem; height: .875rem; border-radius: 50%; flex: none; align-self: center; }
+.ring-key b { min-width: 1.5ch; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Reference tables beside the quiz */
+body:has(#view-quiz.with-crib:not([hidden])) > nav, main:has(#view-quiz.with-crib:not([hidden])) { max-width: 104rem; }
+#view-quiz.with-crib { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 2.5rem; align-items: start; }
+.crib {
+  position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto;
+  background: var(--paper); border: 1px solid var(--rule); border-top: 6px solid var(--c); padding: .75rem 1rem 1rem;
+}
+.crib-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.crib-head h2 { font: 700 1.375rem var(--serif); color: var(--c); }
+.crib-head small { margin-left: .5rem; font: 400 .9375rem var(--sans); color: var(--ink-soft); }
+.crib-hl { margin-top: .375rem; font-size: .9375rem; color: var(--ink-soft); }
+.crib-hl .hl-label::before { content: ''; display: inline-block; width: .75rem; height: .75rem; margin-right: .375rem; background: var(--straw); outline: 3px solid var(--ink); outline-offset: -3px; vertical-align: -1px; }
+.crib-tabs { display: flex; flex-wrap: wrap; gap: .375rem; margin-top: .625rem; }
+.crib-tabs button { padding: .25rem .625rem; border: 2px solid var(--c); border-radius: 2px; background: var(--paper); color: var(--c); font-weight: 700; font-size: .9375rem; }
+.crib-tabs button[aria-pressed="true"] { background: var(--c); color: #fff; }
+.crib h3 { font: 700 1.125rem var(--serif); margin-top: 1rem; }
+.crib .plain-note { margin-top: .375rem; color: var(--ink-soft); }
+.crib .grid-wrap { margin-top: .625rem; }
+.crib .g-notes { font-size: .875rem; }
+.crib .gtable, .crib .gtable.tense, .crib .gtable.words { min-width: 0; }
+.crib .gtable caption, .crib .g-title { font-size: 1rem; padding: .5rem .25rem; }
+.crib .gtable th, .crib .gtable td { padding: .375rem .3rem; overflow-wrap: anywhere; }
+.crib .g-head { font-size: .9375rem; }
+.crib .g-sub, .crib .g-label { font-size: .8125rem; }
+.crib .g-end { font-size: 1.0625rem; }
+.crib .g-ex, .crib .g-eq { font-size: .8125rem; }
+.crib .g-form { font-size: .9375rem; }
+@media (max-width: 75rem) {
+  #view-quiz.with-crib { grid-template-columns: minmax(0, 1fr); }
+  .crib { position: static; max-height: none; overflow: visible; }
+}
+
 /* Translation tooltip */
 .tip {
   position: fixed; z-index: 10; pointer-events: none;

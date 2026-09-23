@@ -44,6 +44,8 @@
     mode: store.get(`${APP.storagePrefix}.mode`, 'type') === 'notebook' ? 'notebook' : 'type',
     length: [10, 20, 50, 0].includes(store.get(`${APP.storagePrefix}.length`, 20)) ? store.get(`${APP.storagePrefix}.length`, 20) : 20,   // 0 = all
     order: store.get(`${APP.storagePrefix}.order`, 'weak') === 'random' ? 'random' : 'weak',
+    crib: store.get(`${APP.storagePrefix}.crib`, false) === true,   // keep the tables open beside the quiz
+    cribGroup: null,                                                   // the tab picked in that panel when the group is hidden
     quiz: null,
   };
 
@@ -115,7 +117,7 @@
     store.set(`${APP.storagePrefix}.resume`, {
       topic: state.topic.id, idx: q.idx,
       queue: q.queue.map(s => keyOf(state.topic, s)),
-      results: q.results.map(r => ({ key: keyOf(state.topic, r.item), right: r.right, mode: r.mode })),
+      results: q.results.map(r => ({ key: keyOf(state.topic, r.item), right: r.right, solved: r.solved, mode: r.mode })),
     });
   }
   function savedQuiz() {
@@ -124,7 +126,7 @@
     const byKey = Object.fromEntries(state.topic.sentences.map(s => [keyOf(state.topic, s), s]));
     const queue = r.queue.map(k => byKey[k]).filter(Boolean);
     if (queue.length !== r.queue.length || r.idx >= queue.length) return null;
-    return { queue, idx: r.idx, results: r.results.map(x => ({ item: byKey[x.key], right: x.right, mode: x.mode })).filter(x => x.item) };
+    return { queue, idx: r.idx, results: r.results.map(x => ({ item: byKey[x.key], right: x.right, solved: x.solved ?? x.right, mode: x.mode })).filter(x => x.item) };
   }
   function resumeQuiz() {
     const saved = savedQuiz();
@@ -307,17 +309,25 @@
   }
 
   // items: [{ word, en, forms: six strings }] in the order masc animate, masc inanimate, neuter, feminine, plural with men, other plural
-  function sixSlotGrid(caption, items, notes) {
-    const cell = (x, tint, label, span) => `<td class="g-cell t-${tint}" ${span ? `colspan="${span}"` : ''} data-col="${esc(label)}"><span class="g-form" lang="${APP.lang}">${esc(x)}</span></td>`;
-    const pair = (x, y, tintBoth, tintX, tintY, lx, ly, lboth) => x === y ? cell(x, tintBoth, lboth, 2) : cell(x, tintX, lx) + cell(y, tintY, ly);
+  // hl: from pronounHighlight, marks the answer's cell in its word's row
+  function sixSlotGrid(caption, items, notes, hl) {
     const rows = items.map(({ word, en, forms: f }) => {
       const head = `<th scope="row" class="g-label"><span lang="${APP.lang}">${esc(word)}</span><small>${esc(en)}</small></th>`;
-      if (f.every(x => x === f[0])) return `<tr>${head}<td class="g-cell t-all" colspan="6" data-col="every form"><span class="g-form" lang="${APP.lang}">${esc(f[0])}</span><span class="g-eq">never changes</span></td></tr>`;
-      return `<tr>${head}
-        ${pair(f[0], f[1], 'm', 'm1', 'm2', 'masculine animate', 'masculine inanimate', 'masculine')}
-        ${cell(f[2], 'n', 'neuter')}
-        ${cell(f[3], 'f', 'feminine')}
-        ${pair(f[4], f[5], 'all', 'm1', 'all', 'plural with men', 'other plural', 'plural')}</tr>`;
+      const pair = (i, tintBoth, tintX, tintY, lx, ly, lboth) => f[i] === f[i + 1]
+        ? [{ x: f[i], tint: tintBoth, label: lboth, span: 2, slots: [i, i + 1] }]
+        : [{ x: f[i], tint: tintX, label: lx, slots: [i] }, { x: f[i + 1], tint: tintY, label: ly, slots: [i + 1] }];
+      const cells = f.every(x => x === f[0])
+        ? [{ x: f[0], tint: 'all', label: 'every form', span: 6, slots: [0, 1, 2, 3, 4, 5], eq: 'never changes' }]
+        : [...pair(0, 'm', 'm1', 'm2', 'masculine animate', 'masculine inanimate', 'masculine'),
+          { x: f[2], tint: 'n', label: 'neuter', slots: [2] },
+          { x: f[3], tint: 'f', label: 'feminine', slots: [3] },
+          ...pair(4, 'all', 'm1', 'all', 'plural with men', 'other plural', 'plural')];
+      if (hl && hl.word === word) {
+        const hits = cells.filter(c => hl.forms.has(c.x.toLocaleLowerCase(APP.lang)));
+        const exact = hits.filter(c => hl.slots && c.slots.some(i => hl.slots.includes(i)));
+        (exact.length ? exact : hits).forEach(c => { c.on = true; });
+      }
+      return `<tr>${head}${cells.map(c => `<td class="g-cell t-${c.tint} ${c.on ? 'hl' : ''}" ${c.span ? `colspan="${c.span}"` : ''} data-col="${esc(c.label)}"><span class="g-form" lang="${APP.lang}">${esc(c.x)}</span>${c.eq ? `<span class="g-eq">${c.eq}</span>` : ''}</td>`).join('')}</tr>`;
     }).join('');
     return `<div class="table-wrap grid-wrap">
       <table class="gtable words">
@@ -336,23 +346,27 @@
     ${notes.length ? `<ul class="g-notes">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}`;
   }
 
-  const possessiveGrid = c => sixSlotGrid(`${c.en}: my, your, his, her, our, their, this`,
-    PRONOUNS.possessives.map(p => ({ word: p.word, en: p.en, forms: possessiveForms(p, c.id) })), PRONOUNS.possessiveNotes);
+  const possessiveGrid = (c, hl) => sixSlotGrid(`${c.en}: my, your, his, her, our, their, this`,
+    PRONOUNS.possessives.map(p => ({ word: p.word, en: p.en, forms: possessiveForms(p, c.id) })), PRONOUNS.possessiveNotes, hl);
 
   const smallWords = () => typeof SMALL_WORDS !== 'undefined' ? SMALL_WORDS : [];
   const smallWordsPersonal = () => typeof SMALL_WORDS_PERSONAL !== 'undefined' ? SMALL_WORDS_PERSONAL : [];
-  const smallWordsGrid = c => smallWords().length
+  const smallWordsGrid = (c, hl) => smallWords().length
     ? sixSlotGrid(`${c.en}: which, whose, every, all, other`, smallWords().map(w => ({ word: w.word, en: w.en, forms: w.forms[c.id] })),
-        smallWords().filter(w => w.note).map(w => `${w.word}: ${w.note}`))
+        smallWords().filter(w => w.note).map(w => `${w.word}: ${w.note}`), hl)
     : '';
 
-  function personalTable(c) {
+  function personalTable(c, hl) {
     const prep = PRONOUNS.prepositions[c.id];
     const rows = PRONOUNS.personal.concat(smallWordsPersonal()).map(p => {
       const [plain, after] = p[c.id];
+      // a cell such as "go, jego" matches either form; when both columns match, the word before the gap decides
+      const has = text => !!hl && hl.word === p.word && text.split(/,\s*/).some(x => hl.forms.has(x.toLocaleLowerCase(APP.lang)));
+      let onPlain = has(plain), onAfter = !!prep && has(after || plain);
+      if (onPlain && onAfter) { onPlain = !hl.afterPrep; onAfter = hl.afterPrep; }
       return `<tr><th scope="row" class="g-label"><span lang="${APP.lang}">${esc(p.word)}</span><small>${esc(p.en)}</small></th>
-        <td class="g-cell t-all" data-col="${esc(c.en.toLowerCase())}"><span class="g-form" lang="${APP.lang}">${esc(plain)}</span></td>
-        ${prep ? `<td class="g-cell t-all ${after ? 'changed' : ''}" data-col="after a preposition"><span class="g-form" lang="${APP.lang}">${esc(after || plain)}</span></td>` : ''}</tr>`;
+        <td class="g-cell t-all ${onPlain ? 'hl' : ''}" data-col="${esc(c.en.toLowerCase())}"><span class="g-form" lang="${APP.lang}">${esc(plain)}</span></td>
+        ${prep ? `<td class="g-cell t-all ${after ? 'changed' : ''} ${onAfter ? 'hl' : ''}" data-col="after a preposition"><span class="g-form" lang="${APP.lang}">${esc(after || plain)}</span></td>` : ''}</tr>`;
     }).join('');
     return `<div class="table-wrap grid-wrap">
       <table class="gtable words narrow">
@@ -365,13 +379,32 @@
     <ul class="g-notes">${PRONOUNS.personalNotes[c.id].map(n => `<li>${esc(n)}</li>`).join('')}</ul>`;
   }
 
-  function pronounBlock(c) {
+  function pronounBlock(c, hl) {
     if (c.id === 'voc') return `<h3>Pronouns and small words</h3><p class="plain-note">${esc(PRONOUNS.vocNote)}</p>`;
     return `<h3>Pronouns and small words</h3>
       <p class="plain-note">${c.id === 'nom' ? esc(PRONOUNS.nomNote) : 'These words do not follow the noun endings above. Each has its own form in this case.'}</p>
-      ${c.id === 'nom' ? '' : personalTable(c)}
-      ${possessiveGrid(c)}
-      ${smallWordsGrid(c)}`;
+      ${c.id === 'nom' ? '' : personalTable(c, hl)}
+      ${possessiveGrid(c, hl)}
+      ${smallWordsGrid(c, hl)}`;
+  }
+
+  // Where a pronoun sentence's answer sits: the row is the dictionary word, the cell is the one holding the answer.
+  // The gender tag of the noun after the gap (siostry{sister|f}) picks the column when a form shows up in several.
+  const PREPOSITIONS = new Set('bez dla do dzięki koło ku między na nad o obok od oprócz po pod przed przeciwko przez przy u w we wobec z za zamiast ze'.split(' '));
+  const TAG_SLOTS = { m1: [0], m2: [1], m: [0, 1], n: [2], f: [3], 'm1.pl': [4], 'm.pl': [4], 'm2.pl': [5], 'n.pl': [5], 'f.pl': [5] };
+  function pronounHighlight(item) {
+    const toks = parseSentence(item.s).filter(t => !t.punct);
+    const gap = toks.findIndex(t => t.gap);
+    const before = toks[gap - 1], tagged = toks.slice(gap + 1, gap + 3).find(t => t.tag);
+    const slots = tagged ? TAG_SLOTS[tagged.tag] : null;
+    const SLOT_NAMES = ['masculine animate', 'masculine inanimate', 'masculine', 'neuter', 'feminine', 'plural with men', 'other plural'];
+    const slotName = !slots ? '' : slots.length === 2 ? 'masculine' : SLOT_NAMES[slots[0] + (slots[0] >= 2 ? 1 : 0)];
+    return {
+      word: item.base, slots,
+      forms: new Set(item.a.map(a => a.toLocaleLowerCase(APP.lang))),
+      afterPrep: !!before && !!before.word && PREPOSITIONS.has(before.word.toLocaleLowerCase(APP.lang)),
+      label: `${item.base}${slotName ? `, ${slotName}` : ''}`,
+    };
   }
 
   function overviewTable(block) {
@@ -574,12 +607,18 @@
       <button type="button" class="link-btn" data-action="see-sounds">See all sound changes</button></div>`;
   }
 
+  // the (at most two) verb tables that best show where the answer sits, each with its highlight
+  function tenseHits(item, g) {
+    const score = h => (h.own ? 2 : 0) + (h.weak ? 0 : 1);
+    return g.tables.map(t => ({ t, hl: tableHighlight(t, item) })).filter(x => x.hl).sort((a, b) => score(b.hl) - score(a.hl)).slice(0, 2);
+  }
+  const tenseLabel = item => item.p ? `${item.p}${itemGender(item) && !PLURAL_P.has(item.p) && ['ja', 'ty'].includes(item.p) ? `, ${{ m: 'a man', f: 'a woman' }[itemGender(item)] || ''}` : ''}` : '';
+
   function revealTables(item, g) {
     if (!g.tables) return '';
-    const score = h => (h.own ? 2 : 0) + (h.weak ? 0 : 1);
-    const hits = g.tables.map(t => ({ t, hl: tableHighlight(t, item) })).filter(x => x.hl).sort((a, b) => score(b.hl) - score(a.hl)).slice(0, 2);
+    const hits = tenseHits(item, g);
     const shown = hits.length ? hits : [{ t: g.tables[0], hl: null }];
-    const label = item.p ? `${item.p}${itemGender(item) && !PLURAL_P.has(item.p) && ['ja', 'ty'].includes(item.p) ? `, ${{ m: 'a man', f: 'a woman' }[itemGender(item)] || ''}` : ''}` : '';
+    const label = tenseLabel(item);
     return `<details class="mini-grid" open>
       <summary>Where it sits in the table${label ? `<span class="hl-label">${esc(label)}</span>` : ''}</summary>
       ${shown.map(x => tenseTable(x.t, x.hl, true)).join('')}
@@ -661,6 +700,7 @@
     const q = state.quiz;
     const t = state.topic;
 
+    root.classList.toggle('with-crib', !!q && q.idx < q.queue.length && state.crib);
     if (!q) {
       const saved = savedQuiz();
       root.innerHTML = `<div class="quiz-intro">
@@ -676,6 +716,7 @@
         </fieldset>` : ''}
         ${modePicker()}
         <label class="toggle"><input type="checkbox" id="show-group" ${state.showGroup ? 'checked' : ''}> Tell me which ${t.unit} each sentence needs</label>
+        <label class="toggle"><input type="checkbox" id="crib" ${state.crib ? 'checked' : ''}> Keep the ${t.refLabel.toLowerCase()} tables open beside the quiz</label>
         <fieldset class="lengths">
           <legend>How many sentences?</legend>
           ${[10, 20, 50, 0].map(n => `<label><input type="radio" name="length" value="${n}" ${state.length === n ? 'checked' : ''}><span>${n || `All ${pool().length}`}</span></label>`).join('')}
@@ -726,7 +767,7 @@
         <p class="en">${esc(item.en)}</p>
         <p class="why"><b>${esc(t.whyLabel(g))}</b> ${esc(item.why)}</p>
         ${changeNote(item)}
-        ${(() => { if (t.id !== 'cases') return revealTables(item, g); const hl = itemHighlight(item); return hl ? `<details class="mini-grid" open>
+        ${(() => { if (state.crib) return ''; if (t.id !== 'cases') return revealTables(item, g); const hl = itemHighlight(item); return hl ? `<details class="mini-grid" open>
           <summary>Where it sits in the table<span class="hl-label">${esc(hl.label)}</span></summary>
           ${caseGrid(g, hl, hl.number)}
         </details>` : ''; })()}
@@ -748,7 +789,8 @@
       <div class="q-top">
         <span>Sentence ${q.idx + 1} of ${q.queue.length}</span>
         <span>${right} right so far
-          ${q.revealed ? '' : `<button type="button" class="link-btn mode-switch" data-action="switch-mode">${isNotebook() ? 'Switch to typing' : 'Switch to notebook mode'}</button>`}</span>
+          ${q.revealed ? '' : `<button type="button" class="link-btn mode-switch" data-action="switch-mode">${isNotebook() ? 'Switch to typing' : 'Switch to notebook mode'}</button>`}
+          <button type="button" class="link-btn mode-switch" data-action="toggle-crib" aria-pressed="${state.crib}">${state.crib ? 'Hide tables' : 'Show tables'}</button></span>
       </div>
       <div class="q-progress" aria-hidden="true"><i style="width:${(q.idx / q.queue.length) * 100}%"></i></div>
 
@@ -763,10 +805,44 @@
       <p class="speech-note" id="speech-note" hidden></p>
       <p class="feedback ${q.feedback ? q.feedback.kind : ''}" role="status">${q.feedback ? esc(q.feedback.text) : ''}</p>
       ${afterReveal}
-    </div>`;
+    </div>${state.crib ? cribPanel(item) : ''}`;
 
     const focusEl = $('#next-btn') || $('#answer') || $('#reveal-btn');
     if (focusEl) focusEl.focus({ preventScroll: true });
+    const crib = $('.crib'), cell = crib && $('.g-cell.hl', crib);
+    if (cell && crib.scrollHeight > crib.clientHeight) {
+      const top = cell.getBoundingClientRect().top - crib.getBoundingClientRect().top + crib.scrollTop;
+      crib.scrollTop = Math.max(0, top - crib.clientHeight / 3);
+    }
+  }
+
+  // The reference tables beside the quiz. With the group hidden, every selected group gets a tab so the panel does not give it away.
+  function cribPanel(item) {
+    const t = state.topic, groups = selectedGroups();
+    const hidden = !state.showGroup && !state.quiz.revealed;
+    const g = hidden ? (t.byId[state.cribGroup] && sel().has(state.cribGroup) ? t.byId[state.cribGroup] : groups[0]) : t.byId[item.c];
+    // once the answer is revealed, the panel marks where it sits instead of a second table appearing under the answer
+    const revealed = state.quiz.revealed;
+    let body, label = '';
+    if (t.id === 'cases') {
+      const hl = !revealed ? null : item.kind === 'pronoun' ? pronounHighlight(item) : itemHighlight(item);
+      // the vocative has no pronoun tables of its own; its possessives share the nominative forms, so show that grid here
+      body = item.kind !== 'pronoun' ? caseGrid(g, hl, null) : pronounBlock(g, hl) + (g.id === 'voc' ? possessiveGrid(g, hl) : '');
+      if (hl) label = hl.label;
+    } else {
+      const hits = revealed ? tenseHits(item, g) : [];
+      if (hits.length) label = tenseLabel(item);
+      body = g.tables.map(x => tenseTable(x, (hits.find(h => h.t === x) || {}).hl, true)).join('');
+    }
+    // only name a spot the tables actually mark
+    const marked = /class="g-cell[^"]*\bhl\b/.test(body);
+    return `<aside class="crib" style="${colour(g.colour)}" aria-label="${esc(t.refLabel)} tables">
+      <div class="crib-head"><h2><span lang="${APP.lang}">${esc(g.pl)}</span><small>${esc(g.en)}</small></h2>
+        <button type="button" class="link-btn" data-action="toggle-crib">Hide</button></div>
+      ${label && marked ? `<p class="crib-hl">Where it sits: <span class="hl-label">${esc(label)}</span></p>` : ''}
+      ${hidden && groups.length > 1 ? `<div class="crib-tabs" role="group" aria-label="Show the tables for">${groups.map(x => `<button type="button" style="${colour(x.colour)}" data-crib="${x.id}" aria-pressed="${x === g}" lang="${APP.lang}">${esc(x.pl)}</button>`).join('')}</div>` : ''}
+      <div class="crib-body">${body}</div>
+    </aside>`;
   }
 
   function checkAnswer() {
@@ -800,14 +876,15 @@
     if (!q.feedback || q.feedback.kind !== 'good') q.feedback = null;
     q.revealed = true;
     // typed answers are scored now; notebook answers wait for the learner's own verdict
-    if (!isNotebook()) { q.results.push({ item: current(), right: q.firstTryRight, mode: 'type' }); record(current(), q.firstTryRight); saveQuiz(); }
+    // right: first try; solved: got there in the end without pressing Reveal
+    if (!isNotebook()) { q.results.push({ item: current(), right: q.firstTryRight, solved: !!q.feedback, mode: 'type' }); record(current(), q.firstTryRight); saveQuiz(); }
     renderQuiz();
   }
 
   function selfMark(right) {
     const q = state.quiz;
     if (!q || !q.revealed || q.results.length > q.idx) return;
-    q.results.push({ item: current(), right, mode: 'notebook' });
+    q.results.push({ item: current(), right, solved: right, mode: 'notebook' });
     record(current(), right);
     next();
   }
@@ -848,16 +925,21 @@
   function renderSummary(root) {
     const q = state.quiz;
     store.set(`${APP.storagePrefix}.resume`, null);
+    const total = q.results.length;
     const right = q.results.filter(r => r.right).length;
+    const solved = q.results.filter(r => r.solved).length;
     const missed = q.results.filter(r => !r.right);
     const modes = new Set(q.results.map(r => r.mode));
-    const how = modes.size > 1 ? 'typed right on the first try or marked right in your notebook.'
-      : modes.has('notebook') ? 'marked right in your notebook.'
-      : 'right on the first try, without revealing the answer.';
+    const ring = modes.has('type')
+      ? scoreRing(total, [
+          { n: right, tint: 'ins', label: 'right first time' },
+          { n: solved - right, tint: 'loc', label: 'right after another try' },
+        ], 'revealed')
+      : scoreRing(total, [{ n: right, tint: 'ins', label: 'marked right in your notebook' }], 'marked wrong');
     root.innerHTML = `<div class="summary">
       <h2>Quiz finished</h2>
-      <p class="score">${right} of ${q.results.length}</p>
-      <p>${how}</p>
+      ${ring}
+      ${modes.size > 1 ? '<p>Sentences you marked right in your notebook count as right first time.</p>' : ''}
       ${missed.length ? `<h3>Sentences to look at again</h3>
       <ul class="missed">${missed.map(({ item }) => { const g = state.topic.byId[item.c]; return `<li style="${colour(g.colour)}">
         <span class="ex" lang="${APP.lang}">${joinTokens(parseSentence(item.s), tk => tk.punct ? esc(tk.punct) : tk.gap ? `<b>${esc(item.a[0])}</b>` : esc(tk.word))}</span>
@@ -867,11 +949,70 @@
         <button type="button" class="btn ${missed.length ? '' : 'primary'}" data-action="start">Start a new quiz</button>
       </div>
     </div>`;
+    animateRings(root);
+  }
+
+  // One ring, one coloured segment per kind of right answer, laid end to end.
+  // pathLength="100" makes dash lengths percentages of the circle.
+  function scoreRing(total, parts, restLabel) {
+    const pct = n => total ? 100 * n / total : 0;
+    const sum = parts.reduce((a, p) => a + p.n, 0);
+    let from = 0;
+    const arcs = parts.map(p => { const a = { ...p, from, len: pct(p.n) }; from += a.len; return a; });
+    const row = (n, label, style) => `<li><i style="${style}"></i><b>${n}</b> ${esc(label)}</li>`;
+    return `<figure class="score-ring" data-parts="${esc(JSON.stringify(arcs.map(a => [a.from, a.len])))}" data-n="${sum}">
+      <div class="ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-track" cx="60" cy="60" r="52" pathLength="100"></circle>
+          ${arcs.slice().reverse().map(a => `<circle class="ring-arc" style="${colour(a.tint)}" cx="60" cy="60" r="52" pathLength="100" transform="rotate(-90 60 60)"></circle>`).join('')}
+        </svg>
+        <div class="ring-num"><b>${sum}</b><span>of ${total}</span></div>
+      </div>
+      <figcaption>
+        <p class="ring-title">${parts.length > 1 ? 'Right without revealing' : 'Right'} <span>${Math.round(pct(sum))}%</span></p>
+        <ul class="ring-key">
+          ${arcs.map(a => row(a.n, a.label, `background: var(--${a.tint})`)).join('')}
+          ${row(total - sum, restLabel, 'background: var(--rule)')}
+        </ul>
+      </figcaption>
+    </figure>`;
+  }
+
+  // Fill the segments one after another, as if a single pen goes round, while the number counts up.
+  function animateRings(root) {
+    const fig = $('.score-ring', root);
+    if (!fig) return;
+    const parts = JSON.parse(fig.dataset.parts), n = Number(fig.dataset.n);
+    const arcs = [...fig.querySelectorAll('.ring-arc')].reverse();   // drawn in reverse so each segment's round cap sits over the next one
+    const num = $('.ring-num b', fig);
+    const end = parts.reduce((a, [from, len]) => Math.max(a, from + len), 0);
+    const draw = fill => parts.forEach(([from, len], i) => {
+      const l = Math.max(0, Math.min(len, fill - from));
+      arcs[i].style.strokeDasharray = `${l} 100`;
+      arcs[i].style.strokeDashoffset = -from;
+      arcs[i].style.visibility = l > 0.05 ? 'visible' : 'hidden';   // a round cap on an empty dash would still show a dot
+    });
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { draw(end); return; }
+    const dur = 400 + end * 12, t0 = performance.now() + 200;
+    draw(0); num.textContent = '0';
+    const tick = now => {
+      const k = Math.min(1, Math.max(0, (now - t0) / dur));
+      const eased = 1 - Math.pow(1 - k, 3);
+      draw(end * eased);
+      num.textContent = Math.round(n * eased);
+      if (k < 1 && fig.isConnected) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   function setMode(mode) {
     state.mode = mode === 'notebook' ? 'notebook' : 'type';
     store.set(`${APP.storagePrefix}.mode`, state.mode);
+  }
+
+  function setCrib(on) {
+    state.crib = on;
+    store.set(`${APP.storagePrefix}.crib`, on);
   }
 
   /* ---------- view switching ---------- */
@@ -977,6 +1118,9 @@
       return;
     }
 
+    const cribTab = e.target.closest('[data-crib]');
+    if (cribTab) { state.cribGroup = cribTab.dataset.crib; renderQuiz(); $(`[data-crib="${state.cribGroup}"]`)?.focus(); return; }
+
     const action = e.target.closest('[data-action]')?.dataset.action;
     if (action === 'start') startQuiz(pool());
     else if (action === 'reveal') reveal();
@@ -991,6 +1135,12 @@
       const input = $('#answer');
       if (input) state.quiz.typed = input.value;
       setMode(isNotebook() ? 'type' : 'notebook');
+      renderQuiz();
+    }
+    else if (action === 'toggle-crib') {
+      const input = $('#answer');
+      if (input) state.quiz.typed = input.value;
+      setCrib(!state.crib);
       renderQuiz();
     }
     else if (action === 'retry-missed') startQuiz(state.quiz.results.filter(r => !r.right).map(r => r.item), true);
@@ -1015,6 +1165,7 @@
   document.addEventListener('submit', e => { if (e.target.id === 'answer-form') { e.preventDefault(); if (!state.quiz.revealed) checkAnswer(); } });
   document.addEventListener('change', e => {
     if (e.target.id === 'show-group') { state.showGroup = e.target.checked; store.set(`${APP.storagePrefix}.showCase`, state.showGroup); }
+    if (e.target.id === 'crib') setCrib(e.target.checked);
     if (e.target.name === 'mode') setMode(e.target.value);
     if (e.target.name === 'kind') { state.kind = e.target.value; store.set(`${APP.storagePrefix}.kind`, state.kind); renderFilter(); renderQuiz(); $(`input[name="kind"][value="${state.kind}"]`)?.focus(); }
     if (e.target.name === 'order') { state.order = e.target.value; store.set(`${APP.storagePrefix}.order`, state.order); }

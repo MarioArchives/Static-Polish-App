@@ -391,14 +391,17 @@ body:has(#view-quiz.with-crib:not([hidden])) > nav, main:has(#view-quiz.with-cri
 .crib .plain-note { margin-top: .375rem; color: var(--ink-soft); }
 .crib .grid-wrap { margin-top: .625rem; }
 .crib .g-notes { font-size: .875rem; }
-.crib .gtable, .crib .gtable.tense, .crib .gtable.words { min-width: 0; }
-.crib .gtable caption, .crib .g-title { font-size: 1rem; padding: .5rem .25rem; }
-.crib .gtable th, .crib .gtable td { padding: .375rem .3rem; overflow-wrap: anywhere; }
-.crib .g-head { font-size: .9375rem; }
-.crib .g-sub, .crib .g-label { font-size: .8125rem; }
-.crib .g-end { font-size: 1.0625rem; }
-.crib .g-ex, .crib .g-eq { font-size: .8125rem; }
-.crib .g-form { font-size: .9375rem; }
+/* compact tables in the panel; phones keep their stacked, labelled rows */
+@media (min-width: 641px) {
+  .crib .gtable, .crib .gtable.tense, .crib .gtable.words { min-width: 0; }
+  .crib .gtable caption, .crib .g-title { font-size: 1rem; padding: .5rem .25rem; }
+  .crib .gtable th, .crib .gtable td { padding: .375rem .3rem; overflow-wrap: anywhere; }
+  .crib .g-head { font-size: .9375rem; }
+  .crib .g-sub, .crib .g-label { font-size: .8125rem; }
+  .crib .g-end { font-size: 1.0625rem; }
+  .crib .g-ex, .crib .g-eq { font-size: .8125rem; }
+  .crib .g-form { font-size: .9375rem; }
+}
 @media (max-width: 75rem) {
   #view-quiz.with-crib { grid-template-columns: minmax(0, 1fr); }
   .crib { position: static; max-height: none; overflow: visible; }

@@ -1,0 +1,2 @@
+[ 8500789ms] [ERROR] Unsafe attempt to load URL file:///home/bob-dylan/projects/polish/index.html from frame with URL file:///home/bob-dylan/projects/polish/index.html. 'file:' URLs are treated as unique security origins.
+ @ file:///home/bob-dylan/projects/polish/index.html:0

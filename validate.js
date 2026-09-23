@@ -35,7 +35,12 @@ const seen = new Set();
   ['s', 'base', 'gloss', 'en', 'why'].forEach(k => need(str(s[k]), `${at}: ${k} missing`));
   need(Array.isArray(s.a) && s.a.length >= 1 && s.a.every(str), `${at}: a must be a non-empty array of strings`);
   need(s.hint === undefined || str(s.hint), `${at}: hint must be a string when present`);
-  need(str(s.p) && s.p.length <= 10, `${at}: p (person of the verb form) is required, e.g. 'yo' or 'ona'`);
+  if (topic.id === 'numbers') {
+    const g = (topic.groups || []).find(x => x.id === s.c);
+    const ok = Array.isArray(s.at) && s.at.length === 2 && g && g.tables.some(t => t.rows.some(r => r.who === s.at[0]) && t.cols.some(c => c.label === s.at[1]));
+    need(ok, `${at}: at must be ['row who', 'column label'] from one table of group ${s.c}`);
+  }
+  if (topic.id !== 'numbers') need(str(s.p) && s.p.length <= 10, `${at}: p (person of the verb form) is required, e.g. 'yo' or 'ona'`);
   need(!seen.has(s.s), `${at}: duplicate sentence`); seen.add(s.s);
   counts[s.c] = (counts[s.c] || 0) + 1;
   if (!str(s.s)) return;

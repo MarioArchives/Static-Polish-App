@@ -25,6 +25,7 @@
   if (typeof PAST_TENSE !== 'undefined') TOPICS.push(tenseTopic(PAST_TENSE));
   if (typeof FUTURE_TENSE !== 'undefined') TOPICS.push(tenseTopic(FUTURE_TENSE));
   if (typeof NUMBERS !== 'undefined') TOPICS.push({ ...tenseTopic(NUMBERS), filterLabel: 'Number rules to practise', unit: 'rule' });
+  if (typeof IDIOMS !== 'undefined') TOPICS.push({ ...tenseTopic(IDIOMS), filterLabel: 'Themes to practise', unit: 'theme' });
   TOPICS.forEach(t => { t.byId = Object.fromEntries(t.groups.map(g => [g.id, g])); t.allIds = t.groups.map(g => g.id); });
 
   const store = {
@@ -617,7 +618,7 @@
     const score = h => (h.own ? 2 : 0) + (h.weak ? 0 : 1);
     return g.tables.map(t => ({ t, hl: tableHighlight(t, item) })).filter(x => x.hl).sort((a, b) => score(b.hl) - score(a.hl)).slice(0, 2);
   }
-  const tenseLabel = item => item.at ? `${item.at[0]}, ${item.at[1].split(':')[0].toLowerCase()}` : item.p ? `${item.p}${itemGender(item) && !PLURAL_P.has(item.p) && ['ja', 'ty'].includes(item.p) ? `, ${{ m: 'a man', f: 'a woman' }[itemGender(item)] || ''}` : ''}` : '';
+  const tenseLabel = item => item.at ? (state.topic.id === 'idioms' ? item.at[0] : `${item.at[0]}, ${item.at[1].split(':')[0].toLowerCase()}`) : item.p ? `${item.p}${itemGender(item) && !PLURAL_P.has(item.p) && ['ja', 'ty'].includes(item.p) ? `, ${{ m: 'a man', f: 'a woman' }[itemGender(item)] || ''}` : ''}` : '';
 
   function revealTables(item, g) {
     if (!g.tables) return '';

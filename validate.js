@@ -15,7 +15,9 @@ const ids = new Set();
   const at = `groups[${i}]`;
   ['id', 'pl', 'en', 'q', 'summary'].forEach(k => need(str(g[k]), `${at}.${k} missing`));
   need(!ids.has(g.id), `${at}.id duplicated`); ids.add(g.id);
+  need(g.colour === undefined || ['nom', 'gen', 'dat', 'acc', 'ins', 'loc', 'voc'].includes(g.colour), `${at}.colour must be a case colour`);
   need(str(g.pl) && g.pl.length <= 16, `${at}.pl must be 16 characters or fewer (it sits on a narrow stripe)`);
+  need(g.cases === undefined || (Array.isArray(g.cases) && g.cases.every(c => /^(nom|gen|dat|acc|ins|loc|voc)\.(sg|pl)$/.test(c))), `${at}.cases must be like ['gen.pl']`);
   need(Array.isArray(g.tables) && g.tables.length >= 1, `${at}.tables needs at least one table`);
   (g.tables || []).forEach((t, j) => {
     need(str(t.title), `${at}.tables[${j}].title missing`);
@@ -37,8 +39,9 @@ const seen = new Set();
   need(s.hint === undefined || str(s.hint), `${at}: hint must be a string when present`);
   if (topic.id === 'numbers' || topic.id === 'idioms') {
     const g = (topic.groups || []).find(x => x.id === s.c);
-    const ok = Array.isArray(s.at) && s.at.length === 2 && g && g.tables.some(t => t.rows.some(r => r.who === s.at[0]) && t.cols.some(c => c.label === s.at[1]));
-    need(ok, `${at}: at must be ['row who', 'column label'] from one table of group ${s.c}`);
+    const cells = Array.isArray(s.at) && Array.isArray(s.at[0]) ? s.at : [s.at];   // one cell, or a list of cells in different tables
+    const ok = Array.isArray(s.at) && g && cells.every(cell => Array.isArray(cell) && cell.length === 2 && g.tables.some(t => t.rows.some(r => r.who === cell[0]) && t.cols.some(c => c.label === cell[1])));
+    need(ok, `${at}: at must be ['row who', 'column label'], or a list of them, from the tables of group ${s.c}`);
   }
   if (topic.id === 'numbers') {
     need(s.kind === 'number' || s.form, `${at}: needs kind: 'number' (the gap is the number) or form (the gap is a noun, adjective or verb)`);

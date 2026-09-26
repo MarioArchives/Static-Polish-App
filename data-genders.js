@@ -24,6 +24,12 @@ const GENDERS = {
   pani: 'f', piłka: 'f', poczta: 'f', podłoga: 'f', pogoda: 'f', polityka: 'f', Polska: 'f', pomoc: 'f', praca: 'f', ręka: 'f',
   rodzina: 'f', sąsiadka: 'f', siostra: 'f', sobota: 'f', stolica: 'f', studentka: 'f', szkoła: 'f', telewizja: 'f', ulica: 'f',
   Warszawa: 'f', wieś: 'f', woda: 'f', zupa: 'f', żona: 'f', sok: 'm2', język: 'm2',
+  // nouns from the idioms (data-idioms.js)
+  koń: 'm1', wąż: 'm1',
+  bawełna: 'f', butelka: 'f', choinka: 'f', chmura: 'f', fortuna: 'f', górka: 'f', gruda: 'f', igła: 'f', kieszeń: 'f', kropka: 'f',
+  malina: 'f', mucha: 'f', noga: 'f', nuta: 'f', szpilka: 'f', torba: 'f',
+  groch: 'm2', grosz: 'm2', kit: 'm2', koniec: 'm2', most: 'm2', nerw: 'm2', nos: 'm2', obraz: 'm2', palec: 'm2',
+  niebo: 'n', ramię: 'n',
   // plural-only nouns
   Niemcy: 'm2', państwo: 'm1', pieniądze: 'm2', rodzice: 'm1', wakacje: 'f',
 };

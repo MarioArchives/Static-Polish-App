@@ -68,6 +68,8 @@ const NUMBERS = {
     {
       id: 'num-2-4', pl: 'Dwa–cztery', en: 'Two to four', q: 'dwa koty, dwie kobiety',
       summary: 'After 2, 3 and 4 the noun goes into the nominative plural and the verb is plural, just as with any plural subject. Two has a separate feminine form, dwie. Numbers ending in 2, 3 or 4 (22, 33, 104) follow the same rule, except 12, 13 and 14.',
+      cases: ['nom.pl'],
+      casesNote: 'After 2, 3 and 4 the noun takes the nominative plural. Find its gender column. In the accusative these forms stay the same, except for men.',
       tables: [
         { title: 'Two, three and four with a noun',
           cols: [{ label: 'Masculine', tint: 'm' }, { label: 'Neuter', tint: 'n' }, { label: 'Feminine', tint: 'f' }],
@@ -101,6 +103,8 @@ const NUMBERS = {
     {
       id: 'num-5plus', pl: 'Pięć i więcej', en: 'Five and up', q: 'pięć kotów, dużo książek',
       summary: 'From 5 up the noun goes into the genitive plural and the verb is singular (neuter in the past tense). The same goes for 12 to 14, for bigger numbers ending in 5 to 9, 0 or 1, and for words of quantity: kilka, wiele, dużo, mało, ile.',
+      cases: ['gen.pl'],
+      casesNote: 'From 5 up the noun takes the genitive plural. Find its gender column.',
       tables: [
         { title: 'Five and up with a noun',
           cols: [{ label: 'Masculine', tint: 'm' }, { label: 'Neuter', tint: 'n' }, { label: 'Feminine', tint: 'f' }],
@@ -132,6 +136,8 @@ const NUMBERS = {
     {
       id: 'num-men', pl: 'Mężczyźni', en: 'Groups with men', q: 'dwóch studentów, pięciu panów',
       summary: 'When the noun means men or a group with at least one man, numbers take their own forms: dwóch, trzech, czterech, pięciu, kilku, wielu, ilu. They go with the genitive plural and a singular verb. For 2 to 4 there is also an older form, dwaj, trzej, czterej, which takes the nominative plural and a plural verb.',
+      cases: ['gen.pl', 'nom.pl'],
+      casesNote: 'Dwóch, pięciu, kilku and the other men forms take the genitive plural. Dwaj, trzej and czterej take the nominative plural: use the personal (men) column.',
       tables: [
         { title: 'Numbers with men',
           cols: [{ label: 'Everyday form: genitive plural, verb singular', tint: 'm' }, { label: 'Also correct: nominative plural, verb plural', tint: 'all' }],
@@ -200,6 +206,8 @@ const NUMBERS = {
     {
       id: 'num-cases', pl: 'Odmiana', en: 'Numbers in other cases', q: 'z dwoma, o pięciu',
       summary: 'Numbers change with the case too. In the genitive, dative, instrumental and locative the five-and-up rule no longer applies: the number and the noun both take the case the sentence needs. The accusative looks like the nominative, except with men.',
+      cases: ['gen.pl', 'dat.pl', 'ins.pl', 'loc.pl'],
+      casesNote: 'In these cases the noun takes the plural of the case the sentence needs, whatever the number.',
       tables: [
         { title: 'Two, three, five through the cases',
           cols: [{ label: '2, masc. and neuter', tint: 'm' }, { label: '2, feminine', tint: 'f' }, { label: '3 (4 the same way)', tint: 'all' }, { label: '5 (6 and up the same way)', tint: 'all' }],

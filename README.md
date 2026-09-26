@@ -18,6 +18,7 @@ In the quiz, click any word in the sentence to hear it. The page uses the browse
 - `data-genders.js` gives the gender of every quiz noun, so the answer card can highlight the right cell of the endings grid. Add an entry when you add a noun.
 - `data-cases-extra.js` holds more case sentences. Together with `data.js` every case has 50. Check it with `node validate-cases.js`.
 - `data-cases-pronouns.js` holds case sentences that test pronouns, question words and possessives. Check it with `node validate-pronouns.js`.
+- `data-idioms.js` holds idiom sentences. Case idioms join the Cases quiz and past-tense idioms join the Past tense quiz. Each one names its idiom, what it means and what it says literally, and "Idioms only" on the quiz start screen picks just these. Check it with `node validate-idioms.js`.
 - `data-words.js` holds the paradigms of small words such as który, każdy and jakiś, shown under each case. Check it with `node validate-words.js`.
 - `data-past.js` and `data-future.js` hold the tense tables and tense quiz sentences. The app shows a topic only when its file is present.
 - `app.js` holds the topic switch, the filter, the tables and the quiz.

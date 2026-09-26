@@ -11,19 +11,22 @@
     id: 'cases', pl: 'Przypadki', en: 'Cases',
     refLabel: 'Endings', filterLabel: 'Cases to practise', unit: 'case',
     groups: CASES.map(c => ({ ...c, colour: c.id })),
-    sentences: SENTENCES.concat(typeof EXTRA_SENTENCES !== 'undefined' ? EXTRA_SENTENCES : [], typeof PRONOUN_SENTENCES !== 'undefined' ? PRONOUN_SENTENCES : []),
-    kinds: [['all', 'Everything'], ['nouns', 'Nouns and adjectives', s => s.kind !== 'pronoun'], ['pronouns', 'Pronouns and small words', s => s.kind === 'pronoun']],
+    sentences: SENTENCES.concat(typeof EXTRA_SENTENCES !== 'undefined' ? EXTRA_SENTENCES : [], typeof PRONOUN_SENTENCES !== 'undefined' ? PRONOUN_SENTENCES : [], typeof IDIOM_CASE_SENTENCES !== 'undefined' ? IDIOM_CASE_SENTENCES : []),
+    kinds: [['all', 'Everything'], ['nouns', 'Nouns and adjectives', s => s.kind !== 'pronoun'], ['pronouns', 'Pronouns and small words', s => s.kind === 'pronoun'], ['idioms', 'Idioms only', s => !!s.idiom]],
     whyLabel: g => `Why ${g.pl.toLowerCase()}?`,
     refLink: g => `See all ${g.pl.toLowerCase()} endings`,
   });
   const tenseTopic = t => ({
     ...t,
     refLabel: 'Forms', filterLabel: 'Verb groups to practise', unit: 'verb group',
-    groups: t.groups.map((g, i) => ({ ...g, colour: TENSE_COLOURS[i % TENSE_COLOURS.length] })),
+    groups: t.groups.map((g, i) => ({ ...g, colour: g.colour || TENSE_COLOURS[i % TENSE_COLOURS.length] })),
     whyLabel: () => 'Why this form?',
     refLink: g => `See the tables for ${g.en.toLowerCase()}`,
   });
-  if (typeof PAST_TENSE !== 'undefined') TOPICS.push(tenseTopic(PAST_TENSE));
+  if (typeof PAST_TENSE !== 'undefined') TOPICS.push({
+    ...tenseTopic({ ...PAST_TENSE, sentences: PAST_TENSE.sentences.concat(typeof IDIOM_PAST_SENTENCES !== 'undefined' ? IDIOM_PAST_SENTENCES : []) }),
+    kinds: [['all', 'Everything'], ['idioms', 'Idioms only', s => !!s.idiom]],
+  });
   if (typeof FUTURE_TENSE !== 'undefined') TOPICS.push(tenseTopic(FUTURE_TENSE));
   if (typeof NUMBERS !== 'undefined') TOPICS.push({ ...tenseTopic(NUMBERS), filterLabel: 'Number rules to practise', unit: 'rule',
     kinds: [['all', 'Everything'], ['words', 'The noun or verb next to the number', s => s.kind !== 'number'], ['numbers', 'The number itself', s => s.kind === 'number']] });
@@ -61,7 +64,7 @@
   const markEndings = s => esc(s).replace(/\[([^\]]*)\]/g, '<b>$1</b>');
   const colour = name => `--c: var(--${name})`;
   const sel = () => state.selected[state.topic.id];
-  const hasKinds = () => !!state.topic.kinds && state.topic.sentences.some(s => s.kind);
+  const hasKinds = () => !!state.topic.kinds && state.topic.kinds.slice(1).every(k => state.topic.sentences.some(k[2]));
   const kindNow = () => (hasKinds() && state.topic.kinds.find(k => k[0] === state.kinds[state.topic.id])) || ['all'];
   const kindOk = s => !kindNow()[2] || kindNow()[2](s);
   const pool = () => state.topic.sentences.filter(s => sel().has(s.c) && kindOk(s));
@@ -618,13 +621,19 @@
   // the (at most two) verb tables that best show where the answer sits, each with its highlight
   function tenseHits(item, g) {
     if (item.at) {
-      const t = g.tables.find(x => x.rows.some(r => r.who === item.at[0]) && x.cols.some(c => c.label === item.at[1]));
-      return t ? [{ t, hl: { rows: new Set([t.rows.findIndex(r => r.who === item.at[0])]), cols: new Set([t.cols.findIndex(c => c.label === item.at[1])]), own: true } }] : [];
+      // at is one [row, column] cell, or a list of them in different tables
+      return atCells(item).map(([row, col]) => {
+        const t = g.tables.find(x => x.rows.some(r => r.who === row) && x.cols.some(c => c.label === col));
+        return t && { t, hl: { rows: new Set([t.rows.findIndex(r => r.who === row)]), cols: new Set([t.cols.findIndex(c => c.label === col)]), own: true } };
+      }).filter(Boolean);
     }
     const score = h => (h.own ? 2 : 0) + (h.weak ? 0 : 1);
-    return g.tables.map(t => ({ t, hl: tableHighlight(t, item) })).filter(x => x.hl).sort((a, b) => score(b.hl) - score(a.hl)).slice(0, 2);
+    const hits = g.tables.map(t => ({ t, hl: tableHighlight(t, item) })).filter(x => x.hl);
+    const sure = hits.filter(x => !x.hl.weak);   // a guess from the explanation's wording only helps when nothing firmer matched
+    return (sure.length ? sure : hits).sort((a, b) => score(b.hl) - score(a.hl)).slice(0, 2);
   }
-  const tenseLabel = item => item.at ? (state.topic.id === 'idioms' ? item.at[0] : `${item.at[0]}, ${item.at[1].split(':')[0].toLowerCase()}`) : item.p ? `${item.p}${itemGender(item) && !PLURAL_P.has(item.p) && ['ja', 'ty'].includes(item.p) ? `, ${{ m: 'a man', f: 'a woman' }[itemGender(item)] || ''}` : ''}` : '';
+  const atCells = item => Array.isArray(item.at[0]) ? item.at : [item.at];
+  const tenseLabel = item => item.at ? (state.topic.id === 'idioms' ? atCells(item)[0][0] : `${item.at[0]}, ${item.at[1].split(':')[0].toLowerCase()}`) : item.p ? `${item.p}${itemGender(item) && !PLURAL_P.has(item.p) && ['ja', 'ty'].includes(item.p) ? `, ${{ m: 'a man', f: 'a woman' }[itemGender(item)] || ''}` : ''}` : '';
 
   function revealTables(item, g) {
     if (!g.tables) return '';
@@ -664,6 +673,8 @@
       </details>`;
     }
     if (typeof CASES === 'undefined') return '';
+    const g = state.topic.byId[item.c];
+    if (state.crib && g && (g.cases || []).includes(`${f.caseId}.${f.number}`)) return '';   // the tables panel already marks it
     const c = CASES.find(x => x.id === f.caseId);
     if (!c || !(f.gender in COL) || !NUMBER_NAMES[f.number]) return '';
     const word = f.pos === 'adj' ? 'Adjectives' : 'Nouns';
@@ -674,12 +685,29 @@
     </details>`;
   }
 
+  // A numbers group may list the case grids its nouns need: cases: ['gen.pl']. hlItem marks the revealed answer's cell.
+  function groupCaseGrids(g, hlItem, notes) {
+    if (!g.cases || typeof CASES === 'undefined') return '';
+    const f = hlItem && parseForm(hlItem);
+    return g.cases.map(spec => {
+      const [caseId, number] = spec.split('.');
+      const c = CASES.find(x => x.id === caseId);
+      if (!c) return '';
+      const on = f && f.pos !== 'verb' && f.caseId === caseId && f.number === number && f.gender in COL;
+      const hl = on ? { number, col: COL[f.gender], rows: new Set([f.pos === 'adj' ? 'Adjectives' : 'Nouns']) } : null;
+      return caseGrid(c, hl, number) + (notes ? `<ul class="g-notes">${c.notes.map(n => `<li>${withNotes(n)}</li>`).join('')}</ul>` : '');
+    }).join('');
+  }
+
   const tenseSection = g => `<article class="case" id="ref-${g.id}" style="${colour(g.colour)}">
       ${band(g, g.en)}
       <h3>How it works</h3>
       ${useList(g.rules)}
       <h3>The forms</h3>
       ${g.tables.map(t => tenseTable(t)).join('')}
+      ${g.cases ? `<h3>How the noun changes</h3>
+      <p class="plain-note">${esc(g.casesNote || '')}</p>
+      ${groupCaseGrids(g, null, true)}` : ''}
       ${watchList(g.watch)}
     </article>`;
 
@@ -814,6 +842,7 @@
         <p class="ans" lang="${APP.lang}"><span class="ans-label" lang="en">Answer</span><span class="say from" tabindex="0" role="button" aria-label="Hear ${esc(item.base)}" data-say="${esc(item.base.replace(/\s*\/\s*/g, ', '))}">${esc(item.base)}</span>${shortHint(item) ? `<small lang="en">${esc(shortHint(item))}</small>` : ''}<span class="arrow" aria-hidden="true">→</span><span class="say to" tabindex="0" role="button" aria-label="Hear ${esc(item.a[0])}" data-say="${esc(item.a[0])}">${esc(item.a[0])}</span></p>
         ${item.a.length > 1 ? `<p class="also">Also correct: <span lang="${APP.lang}">${item.a.slice(1).map(esc).join(', ')}</span></p>` : ''}
         <p class="en">${esc(item.en)}</p>
+        ${item.idiom ? `<p class="idiom-note"><b>Idiom</b> <span lang="${APP.lang}">${esc(item.idiom)}</span>: ${esc(item.means)}.${item.lit ? ` <span class="lit">Literally: ${esc(item.lit)}.</span>` : ''}</p>` : ''}
         <p class="why"><b>${esc(t.whyLabel(g))}</b> ${esc(item.why)}</p>
         ${t.id === 'cases' ? changeNote(item) : ''}
         ${(() => { if (state.crib) return ''; if (t.id !== 'cases') return revealTables(item, g); const hl = itemHighlight(item); return hl ? `<details class="mini-grid" open>
@@ -882,7 +911,7 @@
     } else {
       const hits = revealed ? tenseHits(item, g) : [];
       if (hits.length) label = tenseLabel(item);
-      body = g.tables.map(x => tenseTable(x, (hits.find(h => h.t === x) || {}).hl, true)).join('');
+      body = g.tables.map(x => tenseTable(x, (hits.find(h => h.t === x) || {}).hl, true)).join('') + groupCaseGrids(g, revealed ? item : null, false);
     }
     // only name a spot the tables actually mark
     const marked = /class="g-cell[^"]*\bhl\b/.test(body);

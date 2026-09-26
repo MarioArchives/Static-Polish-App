@@ -169,6 +169,7 @@ const PAST_TENSE = {
             { who: 'móc, can', cells: ['m[ó]gł', 'm[o]gła', 'm[o]gli', 'm[o]gły'] },
             { who: 'pomóc, to help', cells: ['pom[ó]gł', 'pom[o]gła', 'pom[o]gli', 'pom[o]gły'] },
             { who: 'nieść, to carry', cells: ['ni[ó]sł', 'ni[o]sła', 'ni[e]śli', 'ni[o]sły'] },
+            { who: 'pleść, to weave', cells: ['pl[ó]tł', 'pl[o]tła', 'pl[e]tli', 'pl[o]tły'] },
             { who: 'biec, to run', cells: ['bie[g]ł', 'bie[g]ła', 'bie[g]li', 'bie[g]ły'] },
             { who: 'upiec, to bake', cells: ['upie[k]ł', 'upie[k]ła', 'upie[k]li', 'upie[k]ły'] },
           ] },

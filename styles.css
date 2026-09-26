@@ -341,6 +341,10 @@ tbody tr:last-child > * { border-bottom: 0; }
 .reveal .ans small { font: 700 .8125rem var(--sans); padding: .15em .5em; background: var(--ink); color: #fff; border-radius: 2px; align-self: center; }
 .reveal .en { margin-top: .375rem; font-style: italic; color: var(--ink-soft); }
 .reveal .why { margin-top: .875rem; }
+.reveal .idiom-note { margin-top: .875rem; padding: .5rem .75rem; border-left: 3px solid var(--c); background: color-mix(in srgb, var(--c) 7%, transparent); }
+.reveal .idiom-note b { color: var(--c); margin-right: .25rem; }
+.reveal .idiom-note span[lang] { font: 700 1.0625rem var(--serif); }
+.reveal .idiom-note .lit { display: block; color: var(--ink-soft); font-size: .9375rem; }
 .reveal .why b { color: var(--c); }
 .reveal .link-btn { margin-top: .75rem; }
 .next-row { margin-top: 1.5rem; display: flex; gap: .625rem; flex-wrap: wrap; align-items: center; }

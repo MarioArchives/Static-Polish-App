@@ -12,6 +12,7 @@
     refLabel: 'Endings', filterLabel: 'Cases to practise', unit: 'case',
     groups: CASES.map(c => ({ ...c, colour: c.id })),
     sentences: SENTENCES.concat(typeof EXTRA_SENTENCES !== 'undefined' ? EXTRA_SENTENCES : [], typeof PRONOUN_SENTENCES !== 'undefined' ? PRONOUN_SENTENCES : []),
+    kinds: [['all', 'Everything'], ['nouns', 'Nouns and adjectives', s => s.kind !== 'pronoun'], ['pronouns', 'Pronouns and small words', s => s.kind === 'pronoun']],
     whyLabel: g => `Why ${g.pl.toLowerCase()}?`,
     refLink: g => `See all ${g.pl.toLowerCase()} endings`,
   });
@@ -24,7 +25,8 @@
   });
   if (typeof PAST_TENSE !== 'undefined') TOPICS.push(tenseTopic(PAST_TENSE));
   if (typeof FUTURE_TENSE !== 'undefined') TOPICS.push(tenseTopic(FUTURE_TENSE));
-  if (typeof NUMBERS !== 'undefined') TOPICS.push({ ...tenseTopic(NUMBERS), filterLabel: 'Number rules to practise', unit: 'rule' });
+  if (typeof NUMBERS !== 'undefined') TOPICS.push({ ...tenseTopic(NUMBERS), filterLabel: 'Number rules to practise', unit: 'rule',
+    kinds: [['all', 'Everything'], ['words', 'The noun or verb next to the number', s => s.kind !== 'number'], ['numbers', 'The number itself', s => s.kind === 'number']] });
   if (typeof IDIOMS !== 'undefined') TOPICS.push({ ...tenseTopic(IDIOMS), filterLabel: 'Themes to practise', unit: 'theme' });
   TOPICS.forEach(t => { t.byId = Object.fromEntries(t.groups.map(g => [g.id, g])); t.allIds = t.groups.map(g => g.id); });
 
@@ -34,6 +36,7 @@
   };
 
   const savedSel = store.get(`${APP.storagePrefix}.selected`, {});
+  const savedKind = store.get(`${APP.storagePrefix}.kind`, {});   // once a plain string for the cases topic
   const state = {
     topic: TOPICS.find(t => t.id === store.get(`${APP.storagePrefix}.topic`, 'cases')) || TOPICS[0],
     selected: Object.fromEntries(TOPICS.map(t => {
@@ -42,7 +45,7 @@
     })),
     view: store.get(`${APP.storagePrefix}.view`, 'table') === 'quiz' ? 'quiz' : 'table',
     showGroup: store.get(`${APP.storagePrefix}.showCase`, true),
-    kind: ['all', 'nouns', 'pronouns'].includes(store.get(`${APP.storagePrefix}.kind`, 'all')) ? store.get(`${APP.storagePrefix}.kind`, 'all') : 'all',
+    kinds: typeof savedKind === 'string' ? { cases: savedKind } : savedKind,   // topic id -> which words to quiz
     mode: store.get(`${APP.storagePrefix}.mode`, 'type') === 'notebook' ? 'notebook' : 'type',
     length: [10, 20, 50, 0].includes(store.get(`${APP.storagePrefix}.length`, 20)) ? store.get(`${APP.storagePrefix}.length`, 20) : 20,   // 0 = all
     order: store.get(`${APP.storagePrefix}.order`, 'weak') === 'random' ? 'random' : 'weak',
@@ -58,8 +61,9 @@
   const markEndings = s => esc(s).replace(/\[([^\]]*)\]/g, '<b>$1</b>');
   const colour = name => `--c: var(--${name})`;
   const sel = () => state.selected[state.topic.id];
-  const hasKinds = () => state.topic.sentences.some(s => s.kind === 'pronoun');
-  const kindOk = s => !hasKinds() || state.kind === 'all' || (state.kind === 'pronouns') === (s.kind === 'pronoun');
+  const hasKinds = () => !!state.topic.kinds && state.topic.sentences.some(s => s.kind);
+  const kindNow = () => (hasKinds() && state.topic.kinds.find(k => k[0] === state.kinds[state.topic.id])) || ['all'];
+  const kindOk = s => !kindNow()[2] || kindNow()[2](s);
   const pool = () => state.topic.sentences.filter(s => sel().has(s.c) && kindOk(s));
   const selectedGroups = () => state.topic.groups.filter(g => sel().has(g.id));
   const allSelected = () => sel().size === state.topic.allIds.length;
@@ -581,7 +585,9 @@
   }
 
   function changeNote(item) {
-    if (state.topic.id !== 'cases' || item.kind === 'pronoun' || typeof SOFTENING === 'undefined') return '';
+    const form = parseForm(item);
+    if (typeof SOFTENING === 'undefined' || typeof KNOWN_ENDINGS === 'undefined') return '';
+    if (state.topic.id === 'cases' ? item.kind === 'pronoun' : !form || form.pos === 'verb') return '';
     const bases = item.base.trim().split(/\s+/), answers = item.a[0].trim().split(/\s+/);
     if (bases.length !== answers.length) return '';
     const lines = bases.map((bw, i) => {
@@ -606,7 +612,7 @@
       return `${w}: ${text}. <span lang="${APP.lang}">${built}</span>`;
     });
     return `<div class="changes"><p class="changes-title">What changed</p><ul>${lines.map(l => `<li>${l}</li>`).join('')}</ul>
-      <button type="button" class="link-btn" data-action="see-sounds">See all sound changes</button></div>`;
+      ${state.topic.id === 'cases' ? '<button type="button" class="link-btn" data-action="see-sounds">See all sound changes</button>' : ''}</div>`;
   }
 
   // the (at most two) verb tables that best show where the answer sits, each with its highlight
@@ -628,6 +634,43 @@
     return `<details class="mini-grid" open>
       <summary>Where it sits in the table${label ? `<span class="hl-label">${esc(label)}</span>` : ''}</summary>
       ${shown.map(x => tenseTable(x.t, x.hl, true)).join('')}
+    </details>`;
+  }
+
+  /* ---------- numbers: how the word next to the number changes ---------- */
+  // A numbers sentence may carry form: 'noun gen.pl.f', 'adj loc.sg.n' or 'verb past.ono'.
+  // Genders: m1, m2, n, f. In the plural m1 means men and m2 any other masculine noun (psy, koty, stoły).
+  function parseForm(item) {
+    if (!item.form) return null;
+    const [pos, spec = ''] = item.form.split(' ');
+    const [a, b, gender] = spec.split('.');
+    return pos === 'verb' ? { pos, tense: a, p: b } : { pos, caseId: a, number: b, gender };
+  }
+
+  const NUMBER_NAMES = { sg: 'singular', pl: 'plural' };
+  function formTables(item) {
+    const f = parseForm(item);
+    if (!f) return '';
+    if (f.pos === 'verb') {
+      if (f.tense !== 'past' || typeof PAST_TENSE === 'undefined') return '';
+      const probe = { base: item.base, a: item.a, p: f.p, why: '' };
+      // the group whose table has this verb's own row, otherwise the model verb of the regular group
+      const own = PAST_TENSE.groups.map(g => tenseHits(probe, g)).find(h => h.some(x => x.hl.own));
+      const hits = own || tenseHits(probe, PAST_TENSE.groups[0]);
+      if (!hits.length) return '';
+      return `<details class="mini-grid" open>
+        <summary>How the verb changes<span class="hl-label">past tense, ${esc(f.p)}${own ? '' : `, like ${esc(PAST_TENSE.groups[0].tables[0].title.split(',')[0])}`}</span></summary>
+        ${hits.map(x => tenseTable(x.t, x.hl, true)).join('')}
+      </details>`;
+    }
+    if (typeof CASES === 'undefined') return '';
+    const c = CASES.find(x => x.id === f.caseId);
+    if (!c || !(f.gender in COL) || !NUMBER_NAMES[f.number]) return '';
+    const word = f.pos === 'adj' ? 'Adjectives' : 'Nouns';
+    const hl = { number: f.number, col: COL[f.gender], rows: new Set([word]) };
+    return `<details class="mini-grid" open>
+      <summary>How the ${f.pos === 'adj' ? 'ordinal' : 'noun'} changes<span class="hl-label">${esc(c.en.toLowerCase())} ${NUMBER_NAMES[f.number]}, ${COL_NAMES[f.number][hl.col]}${f.pos === 'adj' ? ', adjective ending' : ''}</span></summary>
+      ${caseGrid(c, hl, f.number)}
     </details>`;
   }
 
@@ -718,7 +761,7 @@
         <p>You get one sentence at a time with a word in its dictionary form. Put it in the right form. Hover over any word to see what it means.</p>
         ${hasKinds() ? `<fieldset class="lengths kinds">
           <legend>Which words?</legend>
-          ${[['all', 'Everything'], ['nouns', 'Nouns and adjectives'], ['pronouns', 'Pronouns and small words']].map(([v, label]) => `<label><input type="radio" name="kind" value="${v}" ${state.kind === v ? 'checked' : ''}><span>${label}</span></label>`).join('')}
+          ${t.kinds.map(([v, label]) => `<label><input type="radio" name="kind" value="${v}" ${kindNow()[0] === v ? 'checked' : ''}><span>${label}</span></label>`).join('')}
         </fieldset>` : ''}
         ${modePicker()}
         <label class="toggle"><input type="checkbox" id="show-group" ${state.showGroup ? 'checked' : ''}> Tell me which ${t.unit} each sentence needs</label>
@@ -772,11 +815,12 @@
         ${item.a.length > 1 ? `<p class="also">Also correct: <span lang="${APP.lang}">${item.a.slice(1).map(esc).join(', ')}</span></p>` : ''}
         <p class="en">${esc(item.en)}</p>
         <p class="why"><b>${esc(t.whyLabel(g))}</b> ${esc(item.why)}</p>
-        ${changeNote(item)}
+        ${t.id === 'cases' ? changeNote(item) : ''}
         ${(() => { if (state.crib) return ''; if (t.id !== 'cases') return revealTables(item, g); const hl = itemHighlight(item); return hl ? `<details class="mini-grid" open>
           <summary>Where it sits in the table<span class="hl-label">${esc(hl.label)}</span></summary>
           ${caseGrid(g, hl, hl.number)}
         </details>` : ''; })()}
+        ${t.id === 'cases' ? '' : changeNote(item) + formTables(item)}
         <button type="button" class="link-btn" data-action="see-table" data-group="${g.id}">${esc(t.refLink(g))}</button>
       </div>
       ${isNotebook() && !marked ? `
@@ -1173,7 +1217,7 @@
     if (e.target.id === 'show-group') { state.showGroup = e.target.checked; store.set(`${APP.storagePrefix}.showCase`, state.showGroup); }
     if (e.target.id === 'crib') setCrib(e.target.checked);
     if (e.target.name === 'mode') setMode(e.target.value);
-    if (e.target.name === 'kind') { state.kind = e.target.value; store.set(`${APP.storagePrefix}.kind`, state.kind); renderFilter(); renderQuiz(); $(`input[name="kind"][value="${state.kind}"]`)?.focus(); }
+    if (e.target.name === 'kind') { state.kinds[state.topic.id] = e.target.value; store.set(`${APP.storagePrefix}.kind`, state.kinds); renderFilter(); renderQuiz(); $(`input[name="kind"][value="${e.target.value}"]`)?.focus(); }
     if (e.target.name === 'order') { state.order = e.target.value; store.set(`${APP.storagePrefix}.order`, state.order); }
     if (e.target.name === 'length') { state.length = Number(e.target.value); store.set(`${APP.storagePrefix}.length`, state.length); }
   });

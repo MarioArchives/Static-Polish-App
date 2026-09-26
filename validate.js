@@ -40,8 +40,14 @@ const seen = new Set();
     const ok = Array.isArray(s.at) && s.at.length === 2 && g && g.tables.some(t => t.rows.some(r => r.who === s.at[0]) && t.cols.some(c => c.label === s.at[1]));
     need(ok, `${at}: at must be ['row who', 'column label'] from one table of group ${s.c}`);
   }
+  if (topic.id === 'numbers') {
+    need(s.kind === 'number' || s.form, `${at}: needs kind: 'number' (the gap is the number) or form (the gap is a noun, adjective or verb)`);
+    need(s.kind === undefined || s.kind === 'number', `${at}: kind can only be 'number'`);
+    need(s.form === undefined || /^(noun|adj) (nom|gen|dat|acc|ins|loc|voc)\.(sg|pl)\.(m1|m2|n|f)$|^verb (past|present)\.(ja|ty|on|ona|ono|my|wy|oni|one)$/.test(s.form),
+      `${at}: form must look like 'noun gen.pl.f', 'adj loc.sg.n' or 'verb past.ono'`);
+  }
   if (!s.at) need(str(s.p) && s.p.length <= 10, `${at}: p (person of the verb form) is required, e.g. 'yo' or 'ona'`);
-  need(!seen.has(s.s), `${at}: duplicate sentence`); seen.add(s.s);
+  need(!seen.has(`${s.s}|${s.base}`), `${at}: duplicate sentence`); seen.add(`${s.s}|${s.base}`);   // bare "___" items differ only by base
   counts[s.c] = (counts[s.c] || 0) + 1;
   if (!str(s.s)) return;
   need((s.s.match(/___/g) || []).length === 1, `${at}: needs exactly one ___ gap`);

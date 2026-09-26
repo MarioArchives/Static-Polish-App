@@ -30,6 +30,8 @@ Copy an entry in the `sentences` list of the file you want. `word{translation}` 
 
 A word can carry a gender tag after the translation: `siostra{sister|f}`, `studenci{student|m1.pl}`. The hover card then shows the gender in colour and a plural banner. Tags are `m1` (masculine animate), `m2` (masculine inanimate), `m` (masculine, for agreeing words), `n`, `f`, with `.pl` for plural. `node validate-tags.js <file> <CONST>` checks tags against the copies in `snapshot/`.
 
+Numbers sentences (`data-numbers.js`) carry `at: [row, column]` naming the cell of the numbers table to highlight. They also carry `kind: 'number'` when the gap is the number itself, and `form` when the gap is a noun, ordinal or verb: `'noun gen.pl.f'`, `'adj loc.sg.n'` or `'verb past.ono'`. The answer card then also shows that case's endings grid or the past-tense table, and the quiz start screen lets you practise only the number or only the words next to it. Check with `node validate.js data-numbers.js NUMBERS`.
+
 Tense sentences also carry `p`, the person of the answer (`ja`, `ona`, `oni`…), which the answer card uses to highlight the right row of the conjugation table.
 
 `config.js` holds the language settings (speech voice, on-screen letters, storage prefix). The same `app.js` and `styles.css` also power the Spanish sibling project in `../spanish`.
